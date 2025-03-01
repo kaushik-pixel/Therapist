@@ -338,6 +338,10 @@ function loadVoices() {
         voice.name.includes("Microsoft Mark") || voice.name.includes("Google UK English Male")
     );
 
+    if (allowedVoices.length === 0) {
+        allowedVoices = voices;
+    }
+
     allowedVoices.forEach(voice => {
         let option = document.createElement("option");
         option.value = voice.name;

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Therapist Chatbot</title>
+  <!-- Link to external CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="renderCanvas"></canvas>
+  <div id="ui">
+    <p id="response"></p>
+    <input id="userInput" type="text" placeholder="Type your message here..."/>
+    <button id="sendButton">Send</button>
+    <select id="voiceSelect"></select>
+    <button onclick="speakText()">Speak</button>
+  </div>
+
+  <!-- BabylonJS & GLTF Loader -->
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/loaders/babylon.glTF2FileLoader.min.js"></script>
+  
+  <!-- Your main script -->
+  <script src="script.js"></script>
+</body>
+</html>

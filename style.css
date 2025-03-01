@@ -1,0 +1,113 @@
+/* Ensure the page and viewport are 100% */
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+  }
+  
+  /* Keep the canvas full screen */
+  canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  
+  /* UI Container - Bottom Center with its own background */
+  #ui {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(40, 20, 10, 0.8);
+    padding: 10px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+    
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+
+    width: 90%;
+    max-width: 400px; /* Adjust as needed */
+    max-height: 150px; /* Set a max height */
+    overflow-y: auto; /* Enable vertical scrolling */
+}
+
+  
+  /* Input Field */
+  #ui input {
+    padding: 8px;
+    font-size: 16px;
+    border: 2px solid #8B4513; /* Wood tone */
+    border-radius: 5px;
+    background-color: #2e1b0f;
+    color: white;
+    width: 200px;
+  }
+  
+  /* Buttons */
+  #ui button {
+    background: #8B4513; /* Wooden color */
+    color: white;
+    padding: 8px 12px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+  
+  #ui button:hover {
+    background: #A0522D; /* Lighter wood tone */
+  }
+  
+  /* Select Dropdown */
+  #ui select {
+    width: 150px; /* Adjust as needed */
+    padding: 6px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 2px solid #8B4513;
+    background-color: #2e1b0f;
+    color: white;
+  }
+  
+  /* Response Text */
+  #response {
+    font-size: 16px;
+    color: white;
+    text-align: center;
+    width: 100%;
+    max-height: 100px; /* Limit response height */
+    overflow-y: auto; /* Enable scrolling inside */
+    word-wrap: break-word; /* Prevent long words from breaking layout */
+}
+
+/* Scrollbar Styling */
+#ui::-webkit-scrollbar {
+  width: 8px; /* Scrollbar width */
+}
+
+#ui::-webkit-scrollbar-track {
+  background: rgba(40, 20, 10, 0.8); /* Match UI background */
+  border-radius: 10px;
+}
+
+#ui::-webkit-scrollbar-thumb {
+  background: #8B4513; /* Wooden color */
+  border-radius: 10px;
+  border: 2px solid rgba(40, 20, 10, 0.8); /* Border to blend with UI */
+}
+
+#ui::-webkit-scrollbar-thumb:hover {
+  background: #A0522D; /* Lighter wood tone on hover */
+}

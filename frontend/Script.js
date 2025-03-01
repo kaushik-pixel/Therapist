@@ -77,7 +77,7 @@ const createScene = () => {
                 //console.log("Blend shapes found on:", mesh.name);
                 //console.log("Number of blend shapes:", mesh.morphTargetManager.numTargets);
                 for (let i = 0; i < mesh.morphTargetManager.numTargets; i++) {
-                    console.log(Blend shape ${i}:, mesh.morphTargetManager.getTarget(i).name);
+                    console.log(`Blend shape ${i}:`, mesh.morphTargetManager.getTarget(i).name);
                 }
             }
         });
@@ -219,7 +219,7 @@ function updateMouthMovement() {
             const mouthOpen = mesh.morphTargetManager.getTargetByName("mouthOpen");
 
             if (!mouthOpen) {
-                console.error(Blend shape 'mouthOpen' not found on ${mesh.name});
+                console.error(`Blend shape 'mouthOpen' not found on ${mesh.name}`);
                 return;
             }
 
@@ -228,7 +228,7 @@ function updateMouthMovement() {
                 let interval = setInterval(() => {
                     if (talking) {
                         mouthOpen.influence = Math.random() * 0.8; // Animate mouth movement
-                        //console.log(Now TALKING on ${mesh.name}! Influence: ${mouthOpen.influence});
+                        //console.log(`Now TALKING on ${mesh.name}! Influence: ${mouthOpen.influence}`);
                     } else {
                         clearInterval(interval);
                         mouthOpen.influence = 0;
@@ -316,7 +316,7 @@ window.speechSynthesis.onvoiceschanged = function() {
     const voices = window.speechSynthesis.getVoices();
     console.log("Available Voices:");
     voices.forEach((voice, index) => {
-        console.log(${index}: ${voice.name} (${voice.lang}) - ${voice.default ? "Default" : ""});
+        console.log(`${index}: ${voice.name} (${voice.lang}) - ${voice.default ? "Default" : ""}`);
     });
 };
 
@@ -341,7 +341,7 @@ function loadVoices() {
     allowedVoices.forEach(voice => {
         let option = document.createElement("option");
         option.value = voice.name;
-        option.textContent = ${voice.name} (${voice.lang});
+        option.textContent = `${voice.name} (${voice.lang})`;
         voiceSelect.appendChild(option);
     });
 

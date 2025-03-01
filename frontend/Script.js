@@ -257,20 +257,20 @@ function speakUsingBrowserTTS(text, voiceName = "Google UK English Male", callba
     if (!synth) {
         console.error("Web Speech API not supported");
         isSpeaking = false;
-        if (callback) callback()
+        if (callback) callback();
         return;
     }
 
-    // ✅ Wait for voices to load
+    // Get the available voices
     let voices = synth.getVoices();
-    if (voices.length === 0) {
-        console.warn("Voices not loaded yet, retrying...");
-        setTimeout(() => speakUsingBrowserTTS(text, voiceName), 200);
-        return;
-    }
+    let selectedVoice = null;
 
-    // 🎙 Select the voice by name
-    let selectedVoice = voices.find(v => v.name === voiceName) || voices[0];
+    if (voices.length > 0) {
+        // Try to find the desired voice; if not found, use the first available voice.
+        selectedVoice = voices.find(v => v.name.includes(voiceName)) || voices[0];
+    } else {
+        console.warn("No voices available, using default voice.");
+    }
 
     const sentences = text.match(/[^\.!?]+[\.!?]+/g) || [text];
 
@@ -282,7 +282,9 @@ function speakUsingBrowserTTS(text, voiceName = "Google UK English Male", callba
         }
 
         const utterance = new SpeechSynthesisUtterance(sentences[index].trim());
-        utterance.voice = selectedVoice;
+        if (selectedVoice) {
+            utterance.voice = selectedVoice;
+        }
         utterance.rate = 1;
         utterance.pitch = 1;
 
@@ -302,9 +304,10 @@ function speakUsingBrowserTTS(text, voiceName = "Google UK English Male", callba
         synth.speak(utterance);
     }
 
-    synth.cancel(); 
+    synth.cancel();
     speakSentence(0);
 }
+
 
 
 // ✅ Ensure voices are loaded before speaking
@@ -325,19 +328,25 @@ function loadVoices() {
     const synth = window.speechSynthesis;
     let voices = synth.getVoices();
 
-    if (voices.length === 0) {
-        setTimeout(loadVoices, 200); // Retry if voices are not loaded
-        return;
-    }
-
     const voiceSelect = document.getElementById("voiceSelect");
     voiceSelect.innerHTML = ""; // Clear previous options
 
-    // ✅ Filter voices to show only "Google UK English Male" and "Microsoft Mark"
-    const allowedVoices = voices.filter(voice =>
+    if (voices.length === 0) {
+        // If no voices are loaded, add a default option
+        let option = document.createElement("option");
+        option.value = "default";
+        option.textContent = "Default Voice";
+        voiceSelect.appendChild(option);
+        console.warn("No voices available, using default voice.");
+        return;
+    }
+
+    // Filter voices to show only "Google UK English Male" and "Microsoft Mark"
+    let allowedVoices = voices.filter(voice =>
         voice.name.includes("Microsoft Mark") || voice.name.includes("Google UK English Male")
     );
 
+    // If no matching voices are found, fall back to using all voices
     if (allowedVoices.length === 0) {
         allowedVoices = voices;
     }
@@ -349,12 +358,11 @@ function loadVoices() {
         voiceSelect.appendChild(option);
     });
 
-    // ✅ Auto-select first voice in the list
+    // Auto-select the first voice in the list
     if (allowedVoices.length > 0) {
         voiceSelect.value = allowedVoices[0].name;
     }
 }
-
 // ✅ Ensure voices load when available
 window.speechSynthesis.onvoiceschanged = loadVoices;
 

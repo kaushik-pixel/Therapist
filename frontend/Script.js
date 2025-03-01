@@ -27,7 +27,7 @@ const createScene = () => {
     const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
     
     // Load the avatar
-    BABYLON.SceneLoader.ImportMesh("", "./models/", "Therapist.glb", scene, (meshes, animationGroupsArray) => {
+    BABYLON.SceneLoader.ImportMesh("", "/Models/", "Therapist.glb", scene, (meshes, animationGroupsArray) => {
         avatarMeshes = meshes; // Store the loaded meshes globally
         const avatar = meshes[0];
         avatar.position = new BABYLON.Vector3(0, -1.2, 0); // Adjust avatar position
@@ -101,7 +101,7 @@ function loadBackgroundAssets(scene) {
     ];
     
     assets.forEach(asset => {
-        BABYLON.SceneLoader.ImportMesh("", "./models/", asset.file, scene, (meshes) => {
+        BABYLON.SceneLoader.ImportMesh("", "/Models/", asset.file, scene, (meshes) => {
             meshes.forEach(mesh => {
                 mesh.position = asset.position;
                 mesh.scaling = asset.scale;  // Adjust scale

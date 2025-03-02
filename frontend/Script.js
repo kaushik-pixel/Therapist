@@ -191,10 +191,9 @@ async function handleUserInput() {
         } else if (data.audio_blob) {
             await new Promise(resolve => {
                 const audio = new Audio(URL.createObjectURL(
-                    new Blob([Uint8Array.from(atob(data.audio_blob), c => c.charCodeAt(0))], 
+                    new Blob([Uint8Array.from(atob(data.audio_blob), c => c.charCodeAt(0))],
                     { type: "audio/mpeg" }
-                ))
-                ));
+                )));
                 audio.onended = () => {
                     sendButton.disabled = false;
                     resolve();

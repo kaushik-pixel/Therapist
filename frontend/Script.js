@@ -402,6 +402,11 @@ function populateVoiceSelect(voices) {
     }
 }
 
+window.speakText = function() {
+    const selectedVoice = document.getElementById("voiceSelect").value;
+    speakUsingBrowserTTS("Hello! How are you?", selectedVoice);
+}
+
 
 // Initialize when ready
 document.addEventListener('DOMContentLoaded', initializeVoices)

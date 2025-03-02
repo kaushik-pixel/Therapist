@@ -8,9 +8,6 @@ let currentAnimation = null;
 let talking = false; // Track if the avatar is talking
 let isSpeaking = false; // Prevent multiple executions
 
-let retryCount = 0;
-const MAX_RETRIES = 10;
-
 // Babylon.js scene setup
 //let blinkTarget = null; // Declare globally
 
@@ -80,7 +77,7 @@ const createScene = () => {
                 //console.log("Blend shapes found on:", mesh.name);
                 //console.log("Number of blend shapes:", mesh.morphTargetManager.numTargets);
                 for (let i = 0; i < mesh.morphTargetManager.numTargets; i++) {
-                    console.log(`Blend shape ${i}:`, mesh.morphTargetManager.getTarget(i).name);
+                    console.log(Blend shape ${i}:, mesh.morphTargetManager.getTarget(i).name);
                 }
             }
         });
@@ -222,7 +219,7 @@ function updateMouthMovement() {
             const mouthOpen = mesh.morphTargetManager.getTargetByName("mouthOpen");
 
             if (!mouthOpen) {
-                console.error(`Blend shape 'mouthOpen' not found on ${mesh.name}`);
+                console.error(Blend shape 'mouthOpen' not found on ${mesh.name});
                 return;
             }
 
@@ -231,7 +228,7 @@ function updateMouthMovement() {
                 let interval = setInterval(() => {
                     if (talking) {
                         mouthOpen.influence = Math.random() * 0.8; // Animate mouth movement
-                        //console.log(`Now TALKING on ${mesh.name}! Influence: ${mouthOpen.influence}`);
+                        //console.log(Now TALKING on ${mesh.name}! Influence: ${mouthOpen.influence});
                     } else {
                         clearInterval(interval);
                         mouthOpen.influence = 0;
@@ -258,37 +255,28 @@ function speakUsingBrowserTTS(text, voiceName = "Google UK English Male", callba
     const synth = window.speechSynthesis;
 
     if (!synth) {
-        console.error("❌ Web Speech API not supported");
+        console.error("Web Speech API not supported");
         isSpeaking = false;
-        if (callback) callback();
+        if (callback) callback()
         return;
     }
 
-    console.log("🔎 Retrieving available voices...");
+    // ✅ Wait for voices to load
     let voices = synth.getVoices();
-    
     if (voices.length === 0) {
-        if (retryCount < MAX_RETRIES) {
-            retryCount++;
-            console.warn(`⚠️ Voices not loaded yet, retrying... (${retryCount}/${MAX_RETRIES})`);
-            setTimeout(() => speakUsingBrowserTTS(text, voiceName, callback), 300);
-        } else {
-            console.error("❌ Max retries reached. No voices available.");
-            isSpeaking = false;
-        }
+        console.warn("Voices not loaded yet, retrying...");
+        setTimeout(() => speakUsingBrowserTTS(text, voiceName), 200);
         return;
     }
 
-    console.log("✅ Voices loaded:", voices.map(v => v.name));
+    // 🎙 Select the voice by name
     let selectedVoice = voices.find(v => v.name === voiceName) || voices[0];
-    console.log(`🎙 Selected voice: ${selectedVoice.name}`);
 
     const sentences = text.match(/[^\.!?]+[\.!?]+/g) || [text];
 
     function speakSentence(index) {
         if (index >= sentences.length) {
             isSpeaking = false;
-            console.log("🛑 Speech finished.");
             if (callback) callback();
             return;
         }
@@ -299,67 +287,50 @@ function speakUsingBrowserTTS(text, voiceName = "Google UK English Male", callba
         utterance.pitch = 1;
 
         utterance.onstart = function () {
-            console.log("🔊 Speaking:", sentences[index].trim());
             talking = true;
             playAnimation(talkingAnim1);
             updateMouthMovement();
         };
 
         utterance.onend = function () {
-            console.log("✅ Sentence finished:", sentences[index].trim());
             talking = false;
             playAnimation(idleAnim);
             updateMouthMovement();
             setTimeout(() => speakSentence(index + 1), 100);
         };
 
-        utterance.onerror = function (event) {
-            console.error("❌ SpeechSynthesis error:", event.error);
-            isSpeaking = false;
-        };
-
         synth.speak(utterance);
     }
 
-    synth.cancel(); // Cancel any ongoing speech before starting
-    console.log("🛑 Any ongoing speech canceled, starting new speech...");
+    synth.cancel(); 
     speakSentence(0);
 }
 
-// 🔊 Log available voices
+
+// ✅ Ensure voices are loaded before speaking
+window.speechSynthesis.onvoiceschanged = () => {
+    console.log("Voices loaded.");
+};
+
 window.speechSynthesis.onvoiceschanged = function() {
     const voices = window.speechSynthesis.getVoices();
-    console.log("🔍 Available Voices:");
+    console.log("Available Voices:");
     voices.forEach((voice, index) => {
-        console.log(`${index}: ${voice.name} (${voice.lang}) - ${voice.default ? "Default" : ""}`);
+        console.log(${index}: ${voice.name} (${voice.lang}) - ${voice.default ? "Default" : ""});
     });
 };
+
 
 function loadVoices() {
     const synth = window.speechSynthesis;
     let voices = synth.getVoices();
 
-    console.log("🔍 Checking available voices:", voices.length);
-
     if (voices.length === 0) {
-        if (retryCount < MAX_RETRIES) {
-            retryCount++;
-            console.warn(`⚠️ Voices not loaded yet. Retrying in 200ms... (${retryCount}/${MAX_RETRIES})`);
-            setTimeout(loadVoices, 200);
-        } else {
-            console.error("❌ Max retries reached. No voices available.");
-        }
+        setTimeout(loadVoices, 200); // Retry if voices are not loaded
         return;
     }
-
-    retryCount = 0; // Reset retry count on success
 
     const voiceSelect = document.getElementById("voiceSelect");
-    if (!voiceSelect) {
-        console.error("❌ voiceSelect element not found.");
-        return;
-    }
-
     voiceSelect.innerHTML = ""; // Clear previous options
 
     // ✅ Filter voices to show only "Google UK English Male" and "Microsoft Mark"
@@ -367,32 +338,21 @@ function loadVoices() {
         voice.name.includes("Microsoft Mark") || voice.name.includes("Google UK English Male")
     );
 
-    if (allowedVoices.length === 0) {
-        console.warn("⚠️ No matching voices found. Showing all voices.");
-    }
-
     allowedVoices.forEach(voice => {
         let option = document.createElement("option");
         option.value = voice.name;
-        option.textContent = `${voice.name} (${voice.lang})`;
+        option.textContent = ${voice.name} (${voice.lang});
         voiceSelect.appendChild(option);
     });
 
     // ✅ Auto-select first voice in the list
     if (allowedVoices.length > 0) {
         voiceSelect.value = allowedVoices[0].name;
-        console.log("✅ Selected voice:", voiceSelect.value);
     }
 }
 
 // ✅ Ensure voices load when available
 window.speechSynthesis.onvoiceschanged = loadVoices;
-
-// Manually call `loadVoices()` as a fallback if `onvoiceschanged` doesn’t fire
-setTimeout(() => {
-    console.log("⏳ Manually calling loadVoices() as a fallback.");
-    loadVoices();
-}, 1000);
 
 // ✅ Speak using the selected voice
 function speakText() {

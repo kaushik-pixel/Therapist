@@ -7,6 +7,10 @@ let idleTimeout;
 let currentAnimation = null;
 let talking = false; // Track if the avatar is talking
 let isSpeaking = false; // Prevent multiple executions
+let animationTimeout = null;
+let mouthInterval = null;
+let blinkIntervals = [];
+let animationGroups;
 
 // Babylon.js scene setup
 //let blinkTarget = null; // Declare globally
@@ -57,27 +61,23 @@ const createScene = () => {
                 }   
 
                 if (blinkTarget) {
-                    blinkTarget.influence = 0;
-                    console.log("✅ Blink target found:", blinkTarget.name);
-        
-                    // Blink every 5 seconds
-                    setInterval(() => {
-                        blinkTarget.influence = 1;
-                        //console.log("🔴 Eyes Closed");
-        
-                        setTimeout(() => {
-                            blinkTarget.influence = 0;
-                            //console.log("🟢 Eyes Open");
-                        }, 200); // Keep eyes closed for 200ms
-                    }, 5000); // Blink every 5 seconds
-                } else {
-                    console.warn("⚠️ Blink target NOT found.");
-                }
+                    // Clear only this mesh's intervals
+                    const existing = blinkIntervals.filter(i => i.mesh === mesh);
+                    existing.forEach(clearInterval);
+                    blinkIntervals = blinkIntervals.filter(i => !existing.includes(i));
 
+                    // Store interval with mesh reference
+                    const interval = setInterval(() => {
+                        blinkTarget.influence = 1;
+                        setTimeout(() => blinkTarget.influence = 0, 200);
+                    }, 5000);
+    
+                    blinkIntervals.push({ interval, mesh });
+                }
                 //console.log("Blend shapes found on:", mesh.name);
                 //console.log("Number of blend shapes:", mesh.morphTargetManager.numTargets);
                 for (let i = 0; i < mesh.morphTargetManager.numTargets; i++) {
-                    console.log(Blend shape ${i}:, mesh.morphTargetManager.getTarget(i).name);
+                    console.log(`Blend shape ${i}:`, mesh.morphTargetManager.getTarget(i).name);
                 }
             }
         });
@@ -119,31 +119,27 @@ engine.runRenderLoop(() => scene.render());
 let lastTalkingAnim = null; // Track last used talking animation
 
 function playAnimation(newAnimation) {
+    if (!newAnimation || currentAnimation === newAnimation) return;
+    if (currentAnimation === newAnimation) return;
+
+    // Clear any pending animation changes
+    if (animationTimeout) clearTimeout(animationTimeout);
+
     if (currentAnimation) {
-        currentAnimation.stop(); // Stop current animation
+        currentAnimation.stop();
     }
 
-    // Enable looping only for idle animation
-    const shouldLoop = (newAnimation === idleAnim);
+    const shouldLoop = newAnimation === idleAnim;
     newAnimation.start(shouldLoop, 1.0, newAnimation.from, newAnimation.to, false);
-
-    scene.animationPropertiesOverride = new BABYLON.AnimationPropertiesOverride();
-    scene.animationPropertiesOverride.enableBlending = true;
-    scene.animationPropertiesOverride.blendingSpeed = 0.1; // Smooth blending
     currentAnimation = newAnimation;
 
-    // If talking, switch to the next animation after this one completes
     if (talking && (newAnimation === talkingAnim1 || newAnimation === talkingAnim2)) {
-        lastTalkingAnim = newAnimation; // Store last animation
-
         newAnimation.onAnimationEndObservable.addOnce(() => {
-            if (talking) { // Only switch if still talking
-                let delay = getRandomDelay(); // Get a random delay
-                setTimeout(() => {
-                    if (talking) {
-                        let nextTalkingAnim = getAlternatingTalkingAnimation(); // Alternate animations
-                        playAnimation(nextTalkingAnim);
-                    }
+            if (talking) {
+                const delay = Math.random() * 2000 + 1000; // 1-3s delay
+                animationTimeout = setTimeout(() => {
+                    const nextAnim = currentAnimation === talkingAnim1 ? talkingAnim2 : talkingAnim1;
+                    playAnimation(nextAnim);
                 }, delay);
             }
         });
@@ -168,80 +164,79 @@ async function handleUserInput() {
     if (!userInput || isSpeaking) return; 
     
     const sendButton = document.getElementById('sendButton');
-    sendButton.disabled = true;
+    try {
+        sendButton.disabled = true;
+        
+        const response = await fetch("/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: userInput, user_id: "default" })
+        });
 
-    fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userInput, user_id: "default" })
-    })
-    .then(async (response) => {
         if (!response.ok) {
-            console.error("Failed to fetch the response from the server.");
-            sendButton.disabled = false;
+            console.error("Failed to fetch response");
             return;
         }
 
         const data = await response.json();
-        const chatbotResponse = data.response;
-        document.getElementById("response").innerText = chatbotResponse;
+        document.getElementById("response").innerText = data.response;
 
         if (data.use_browser_tts) {
-            speakUsingBrowserTTS(chatbotResponse, undefined, () => {
-                sendButton.disabled = false; // ✅ Re-enable after speaking
+            await new Promise(resolve => {
+                speakUsingBrowserTTS(data.response, undefined, () => {
+                    sendButton.disabled = false;
+                    resolve();
+                });
             });
-            return;
+        } else if (data.audio_blob) {
+            await new Promise(resolve => {
+                const audio = new Audio(URL.createObjectURL(
+                    new Blob([Uint8Array.from(atob(data.audio_blob), c => c.charCodeAt(0))], 
+                    { type: "audio/mpeg" }
+                ));
+                audio.onended = () => {
+                    sendButton.disabled = false;
+                    resolve();
+                };
+                audio.play();
+            });
         }
-
-        if (data.audio_blob) {
-            const audioBlob = new Blob([Uint8Array.from(atob(data.audio_blob), (c) => c.charCodeAt(0))], { type: "audio/mpeg" });
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            audio.onended = () => {
-                sendButton.disabled = false; // Re-enable when audio finishes
-            };
-            audio.play();
-        }
-    })
-    .catch((err) => console.error("Error:", err));
-    sendButton.disabled = false;
+    } catch (err) {
+        console.error("Error:", err);
+        sendButton.disabled = false;
+    }
 }
 
 
 
-
 function updateMouthMovement() {
-    let talkingMeshes = ["Wolf3D_Head", "Wolf3D_Teeth"]; // Apply changes to these meshes
-    let mouthIntervals = []; // Store intervals for cleanup
+    const talkingMeshes = ["Wolf3D_Head", "Wolf3D_Teeth"];
+    
+    // Clear any existing interval properly
+    if (mouthInterval) {
+        clearInterval(mouthInterval);
+        mouthInterval = null;
+    }
 
-    avatarMeshes.forEach(mesh => {
-        if (talkingMeshes.includes(mesh.name) && mesh.morphTargetManager) {
-            const mouthOpen = mesh.morphTargetManager.getTargetByName("mouthOpen");
-
-            if (!mouthOpen) {
-                console.error(Blend shape 'mouthOpen' not found on ${mesh.name});
-                return;
-            }
-
-            if (talking) {
-                // Create a new interval for this mesh
-                let interval = setInterval(() => {
-                    if (talking) {
-                        mouthOpen.influence = Math.random() * 0.8; // Animate mouth movement
-                        //console.log(Now TALKING on ${mesh.name}! Influence: ${mouthOpen.influence});
-                    } else {
-                        clearInterval(interval);
-                        mouthOpen.influence = 0;
+    if (talking) {
+        mouthInterval = setInterval(() => {
+            avatarMeshes.forEach(mesh => {
+                if (talkingMeshes.includes(mesh.name) && mesh.morphTargetManager) {
+                    const mouthOpen = mesh.morphTargetManager.getTargetByName("mouthOpen");
+                    if (mouthOpen) {
+                        mouthOpen.influence = Math.random() * 0.8;
                     }
-                }, 100);
-                
-                mouthIntervals.push(interval); // Store for cleanup
-            } else {
-                clearInterval(mouthIntervals[mesh.name]);
-                mouthOpen.influence = 0;
+                }
+            });
+        }, 100);
+    } else {
+        avatarMeshes.forEach(mesh => {
+            if (talkingMeshes.includes(mesh.name) && mesh.morphTargetManager) {
+                const mouthOpen = mesh.morphTargetManager.getTargetByName("mouthOpen");
+                if (mouthOpen) mouthOpen.influence = 0;
             }
-        }
-    });
+        });
+    }
 }
 
 
@@ -257,108 +252,176 @@ function speakUsingBrowserTTS(text, voiceName = "Google UK English Male", callba
     if (!synth) {
         console.error("Web Speech API not supported");
         isSpeaking = false;
-        if (callback) callback()
+        if (callback) callback();
         return;
     }
 
-    // ✅ Wait for voices to load
-    let voices = synth.getVoices();
-    if (voices.length === 0) {
-        console.warn("Voices not loaded yet, retrying...");
-        setTimeout(() => speakUsingBrowserTTS(text, voiceName), 200);
-        return;
-    }
+    // ✅ Wait for voices to load with proper retry handling
+    const loadVoices = () => {
+        const voices = synth.getVoices();
+        if (voices.length === 0) {
+            setTimeout(loadVoices, 200);
+            return;
+        }
 
-    // 🎙 Select the voice by name
-    let selectedVoice = voices.find(v => v.name === voiceName) || voices[0];
+        // First try preferred voices
+        let allowedVoices = voices.filter(voice =>
+            voice.name.includes("Microsoft Mark") || 
+            voice.name.includes("Google UK English Male")
+        );
 
-    const sentences = text.match(/[^\.!?]+[\.!?]+/g) || [text];
+        // Fallback to all voices if none found
+        if (allowedVoices.length === 0) {
+            console.warn("No preferred voices found, using all available voices");
+            allowedVoices = voices;
+        }
 
-    function speakSentence(index) {
-        if (index >= sentences.length) {
+        // Ensure we have voices after fallback
+        if (allowedVoices.length === 0) {
+            console.error("No voices available at all");
             isSpeaking = false;
             if (callback) callback();
             return;
         }
 
-        const utterance = new SpeechSynthesisUtterance(sentences[index].trim());
-        utterance.voice = selectedVoice;
+        const selectedVoice = allowedVoices.find(v => v.name === voiceName) || allowedVoices[0];
+        processSentences(text, selectedVoice, callback);
+    };
+
+    loadVoices();
+}
+
+function processSentences(text, voice, callback) {
+    const synth = window.speechSynthesis;
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    let currentIndex = 0;
+
+    function speakNext() {
+        if (currentIndex >= sentences.length) {
+            finishSpeaking();
+            return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(sentences[currentIndex].trim());
+        utterance.voice = voice;
         utterance.rate = 1;
         utterance.pitch = 1;
 
-        utterance.onstart = function () {
+        utterance.onstart = () => {
             talking = true;
             playAnimation(talkingAnim1);
             updateMouthMovement();
         };
 
-        utterance.onend = function () {
-            talking = false;
-            playAnimation(idleAnim);
-            updateMouthMovement();
-            setTimeout(() => speakSentence(index + 1), 100);
+        utterance.onerror = (err) => {
+            console.error("Speech error:", err);
+            finishSpeaking();
+        };
+
+        utterance.onend = () => {
+            currentIndex++;
+            setTimeout(speakNext, 100);
         };
 
         synth.speak(utterance);
     }
 
-    synth.cancel(); 
-    speakSentence(0);
+    function finishSpeaking() {
+        isSpeaking = false;
+        talking = false;
+        playAnimation(idleAnim);
+        updateMouthMovement();
+        if (callback) callback();
+    }
+
+    synth.cancel();
+    speakNext();
+}
+
+function initializeVoices() {
+    const synth = window.speechSynthesis;
+    
+    const handleVoicesChanged = () => {
+        const voices = synth.getVoices();
+        console.log("Available Voices:", voices);
+        populateVoiceSelect(voices);
+    };
+
+    // Set up single event handler
+    synth.onvoiceschanged = handleVoicesChanged;
+    
+    // Initial load if voices already available
+    if (synth.getVoices().length > 0) {
+        handleVoicesChanged();
+    }
 }
 
 
-// ✅ Ensure voices are loaded before speaking
-window.speechSynthesis.onvoiceschanged = () => {
-    console.log("Voices loaded.");
-};
+function populateVoiceSelect(voices) {
+    const voiceSelect = document.getElementById("voiceSelect");
+    if (!voiceSelect) return;
 
-window.speechSynthesis.onvoiceschanged = function() {
-    const voices = window.speechSynthesis.getVoices();
-    console.log("Available Voices:");
-    voices.forEach((voice, index) => {
-        console.log(${index}: ${voice.name} (${voice.lang}) - ${voice.default ? "Default" : ""});
-    });
-};
-
-
-function loadVoices() {
-    const synth = window.speechSynthesis;
-    let voices = synth.getVoices();
+    voiceSelect.disabled = false; 
+    voiceSelect.innerHTML = "";
 
     if (voices.length === 0) {
-        setTimeout(loadVoices, 200); // Retry if voices are not loaded
+        const option = document.createElement("option");
+        option.textContent = "No voices available";
+        voiceSelect.appendChild(option);
+        voiceSelect.disabled = true;
         return;
     }
 
-    const voiceSelect = document.getElementById("voiceSelect");
-    voiceSelect.innerHTML = ""; // Clear previous options
-
-    // ✅ Filter voices to show only "Google UK English Male" and "Microsoft Mark"
-    const allowedVoices = voices.filter(voice =>
-        voice.name.includes("Microsoft Mark") || voice.name.includes("Google UK English Male")
+    // First try preferred voices
+    let allowedVoices = voices.filter(v => 
+        v.name.includes("Microsoft Mark") || 
+        v.name.includes("Google UK English Male")
     );
 
+    // Fallback to all voices if none found
+    if (allowedVoices.length === 0) {
+        console.warn("No preferred voices found, using all available voices");
+        allowedVoices = voices;
+    }
+
+    // Populate dropdown
     allowedVoices.forEach(voice => {
-        let option = document.createElement("option");
+        const option = document.createElement("option");
         option.value = voice.name;
-        option.textContent = ${voice.name} (${voice.lang});
+        option.textContent = `${voice.name} (${voice.lang})`;
         voiceSelect.appendChild(option);
     });
 
-    // ✅ Auto-select first voice in the list
     if (allowedVoices.length > 0) {
         voiceSelect.value = allowedVoices[0].name;
     }
 }
 
-// ✅ Ensure voices load when available
-window.speechSynthesis.onvoiceschanged = loadVoices;
 
-// ✅ Speak using the selected voice
-function speakText() {
-    const selectedVoice = document.getElementById("voiceSelect").value;
-    speakUsingBrowserTTS("Hello! How are you?", selectedVoice);
+// Initialize when ready
+document.addEventListener('DOMContentLoaded', initializeVoices)
+
+
+// Add this to handle scene cleanup
+function cleanup() {
+    if (mouthInterval) clearInterval(mouthInterval);
+    blinkIntervals.forEach(clearInterval);
+    if (animationTimeout) clearTimeout(animationTimeout);
+    
+    // Proper Babylon.js cleanup
+    engine.stopRenderLoop();
+    scene.dispose();
+    engine.dispose();
+    
+    // Cleanup Web Audio
+    if (window.AudioContext) {
+        const audioContext = new AudioContext();
+        audioContext.close();
+    }
 }
+
+// Handle window close/unload
+window.addEventListener("beforeunload", cleanup);
 
 window.addEventListener("resize", function () {
     engine.resize();

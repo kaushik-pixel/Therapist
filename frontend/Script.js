@@ -131,6 +131,11 @@ function playAnimation(newAnimation) {
 
     const shouldLoop = newAnimation === idleAnim;
     newAnimation.start(shouldLoop, 1.0, newAnimation.from, newAnimation.to, false);
+
+    scene.animationPropertiesOverride = new BABYLON.AnimationPropertiesOverride();
+    scene.animationPropertiesOverride.enableBlending = true;
+    scene.animationPropertiesOverride.blendingSpeed = 0.1; // Smooth blending
+    
     currentAnimation = newAnimation;
 
     if (talking && (newAnimation === talkingAnim1 || newAnimation === talkingAnim2)) {

@@ -8,6 +8,9 @@ let currentAnimation = null;
 let talking = false; // Track if the avatar is talking
 let isSpeaking = false; // Prevent multiple executions
 
+let retryCount = 0;
+const MAX_RETRIES = 10;
+
 // Babylon.js scene setup
 //let blinkTarget = null; // Declare globally
 
@@ -255,28 +258,37 @@ function speakUsingBrowserTTS(text, voiceName = "Google UK English Male", callba
     const synth = window.speechSynthesis;
 
     if (!synth) {
-        console.error("Web Speech API not supported");
+        console.error("❌ Web Speech API not supported");
         isSpeaking = false;
-        if (callback) callback()
+        if (callback) callback();
         return;
     }
 
-    // ✅ Wait for voices to load
+    console.log("🔎 Retrieving available voices...");
     let voices = synth.getVoices();
+    
     if (voices.length === 0) {
-        console.warn("Voices not loaded yet, retrying...");
-        setTimeout(() => speakUsingBrowserTTS(text, voiceName), 200);
+        if (retryCount < MAX_RETRIES) {
+            retryCount++;
+            console.warn(`⚠️ Voices not loaded yet, retrying... (${retryCount}/${MAX_RETRIES})`);
+            setTimeout(() => speakUsingBrowserTTS(text, voiceName, callback), 300);
+        } else {
+            console.error("❌ Max retries reached. No voices available.");
+            isSpeaking = false;
+        }
         return;
     }
 
-    // 🎙 Select the voice by name
+    console.log("✅ Voices loaded:", voices.map(v => v.name));
     let selectedVoice = voices.find(v => v.name === voiceName) || voices[0];
+    console.log(`🎙 Selected voice: ${selectedVoice.name}`);
 
     const sentences = text.match(/[^\.!?]+[\.!?]+/g) || [text];
 
     function speakSentence(index) {
         if (index >= sentences.length) {
             isSpeaking = false;
+            console.log("🛑 Speech finished.");
             if (callback) callback();
             return;
         }
@@ -287,56 +299,77 @@ function speakUsingBrowserTTS(text, voiceName = "Google UK English Male", callba
         utterance.pitch = 1;
 
         utterance.onstart = function () {
+            console.log("🔊 Speaking:", sentences[index].trim());
             talking = true;
             playAnimation(talkingAnim1);
             updateMouthMovement();
         };
 
         utterance.onend = function () {
+            console.log("✅ Sentence finished:", sentences[index].trim());
             talking = false;
             playAnimation(idleAnim);
             updateMouthMovement();
             setTimeout(() => speakSentence(index + 1), 100);
         };
 
+        utterance.onerror = function (event) {
+            console.error("❌ SpeechSynthesis error:", event.error);
+            isSpeaking = false;
+        };
+
         synth.speak(utterance);
     }
 
-    synth.cancel(); 
+    synth.cancel(); // Cancel any ongoing speech before starting
+    console.log("🛑 Any ongoing speech canceled, starting new speech...");
     speakSentence(0);
 }
 
-
-// ✅ Ensure voices are loaded before speaking
-window.speechSynthesis.onvoiceschanged = () => {
-    console.log("Voices loaded.");
-};
-
+// 🔊 Log available voices
 window.speechSynthesis.onvoiceschanged = function() {
     const voices = window.speechSynthesis.getVoices();
-    console.log("Available Voices:");
+    console.log("🔍 Available Voices:");
     voices.forEach((voice, index) => {
         console.log(`${index}: ${voice.name} (${voice.lang}) - ${voice.default ? "Default" : ""}`);
     });
 };
 
-
 function loadVoices() {
     const synth = window.speechSynthesis;
     let voices = synth.getVoices();
 
+    console.log("🔍 Checking available voices:", voices.length);
+
     if (voices.length === 0) {
-        setTimeout(loadVoices, 200); // Retry if voices are not loaded
+        if (retryCount < MAX_RETRIES) {
+            retryCount++;
+            console.warn(`⚠️ Voices not loaded yet. Retrying in 200ms... (${retryCount}/${MAX_RETRIES})`);
+            setTimeout(loadVoices, 200);
+        } else {
+            console.error("❌ Max retries reached. No voices available.");
+        }
         return;
     }
 
+    retryCount = 0; // Reset retry count on success
+
     const voiceSelect = document.getElementById("voiceSelect");
+    if (!voiceSelect) {
+        console.error("❌ voiceSelect element not found.");
+        return;
+    }
+
     voiceSelect.innerHTML = ""; // Clear previous options
 
     // ✅ Filter voices to show only "Google UK English Male" and "Microsoft Mark"
     const allowedVoices = voices.filter(voice =>
         voice.name.includes("Microsoft Mark") || voice.name.includes("Google UK English Male")
     );
+
+    if (allowedVoices.length === 0) {
+        console.warn("⚠️ No matching voices found. Showing all voices.");
+    }
 
     allowedVoices.forEach(voice => {
         let option = document.createElement("option");
@@ -348,11 +381,18 @@ function loadVoices() {
     // ✅ Auto-select first voice in the list
     if (allowedVoices.length > 0) {
         voiceSelect.value = allowedVoices[0].name;
+        console.log("✅ Selected voice:", voiceSelect.value);
     }
 }
 
 // ✅ Ensure voices load when available
 window.speechSynthesis.onvoiceschanged = loadVoices;
+
+// Manually call `loadVoices()` as a fallback if `onvoiceschanged` doesn’t fire
+setTimeout(() => {
+    console.log("⏳ Manually calling loadVoices() as a fallback.");
+    loadVoices();
+}, 1000);
 
 // ✅ Speak using the selected voice
 function speakText() {

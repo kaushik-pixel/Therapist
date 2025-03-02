@@ -193,6 +193,7 @@ async function handleUserInput() {
                 const audio = new Audio(URL.createObjectURL(
                     new Blob([Uint8Array.from(atob(data.audio_blob), c => c.charCodeAt(0))], 
                     { type: "audio/mpeg" }
+                ))
                 ));
                 audio.onended = () => {
                     sendButton.disabled = false;

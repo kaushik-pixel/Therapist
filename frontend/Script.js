@@ -97,7 +97,7 @@ const createScene = () => {
 // Function to load background assets
 function loadBackgroundAssets(scene) {
     const assets = [
-        { name: "Scene", file: "Scene1.glb", position: new BABYLON.Vector3(0,-1.2,-1.3), scale: new BABYLON.Vector3(1,1,1), rotation: new BABYLON.Vector3(0, Math.PI*2, 0) }
+        { name: "Scene", file: "Scene1.glb", position: new BABYLON.Vector3(0,0,0.15), scale: new BABYLON.Vector3(1,1,1), rotation: new BABYLON.Vector3(0, Math.PI*2, 0) }
     ];
     
     assets.forEach(asset => {

@@ -188,7 +188,8 @@ async function handleUserInput() {
 
         if (data.use_browser_tts) {
             await new Promise(resolve => {
-                speakUsingBrowserTTS(data.response, undefined, () => {
+                const selectedVoice = document.getElementById("voiceSelect").value;
+                speakUsingBrowserTTS(data.response, selectedVoice, () => {
                     sendButton.disabled = false;
                     resolve();
                 });

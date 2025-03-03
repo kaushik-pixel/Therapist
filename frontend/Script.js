@@ -246,11 +246,22 @@ function updateMouthMovement() {
 
 
 function speakUsingBrowserTTS(text, voiceName = "Google UK English Male", callback = null) {
+    
     if (isSpeaking) {
         console.warn("Already speaking, ignoring duplicate call.");
         return;
     }
 
+     const unlockAudio = () => {
+        if (typeof window.AudioContext !== "undefined") {
+            const context = new window.AudioContext();
+            const oscillator = context.createOscillator();
+            oscillator.connect(context.destination);
+            oscillator.start(0);
+            oscillator.stop(0.001);
+        }
+    };
+    unlockAudio();
     isSpeaking = true;
     const synth = window.speechSynthesis;
 
@@ -270,9 +281,8 @@ function speakUsingBrowserTTS(text, voiceName = "Google UK English Male", callba
         }
 
         // First try preferred voices
-        let allowedVoices = voices.filter(voice =>
-            voice.name.includes("Microsoft Mark") || 
-            voice.name.includes("Google UK English Male")
+        let allowedVoices = voices.filter(voice => 
+            voice.lang.startsWith('en') // Prioritize English voices
         );
 
         // Fallback to all voices if none found
@@ -289,7 +299,9 @@ function speakUsingBrowserTTS(text, voiceName = "Google UK English Male", callba
             return;
         }
 
-        const selectedVoice = allowedVoices.find(v => v.name === voiceName) || allowedVoices[0];
+        const selectedVoice = allowedVoices.find(v => v.name === voiceName) 
+            || allowedVoices.find(v => v.default) 
+            || allowedVoices[0];
         processSentences(text, selectedVoice, callback);
     };
 
@@ -309,7 +321,8 @@ function processSentences(text, voice, callback) {
 
         const utterance = new SpeechSynthesisUtterance(sentences[currentIndex].trim());
         utterance.voice = voice;
-        utterance.rate = 1;
+        utterance.rate = 0.9;
+        utterance.volume = 1;
         utterance.pitch = 1;
 
         utterance.onstart = () => {
@@ -379,8 +392,7 @@ function populateVoiceSelect(voices) {
 
     // First try preferred voices
     let allowedVoices = voices.filter(v => 
-        v.name.includes("Microsoft Mark") || 
-        v.name.includes("Google UK English Male")
+        v.lang.startsWith('en') // Only English variants
     );
 
     // Fallback to all voices if none found
@@ -427,6 +439,11 @@ function cleanup() {
     if (window.AudioContext) {
         const audioContext = new AudioContext();
         audioContext.close();
+    }
+
+    // Cleanup TTS
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
     }
 }
 

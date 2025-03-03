@@ -165,7 +165,10 @@ function getAlternatingTalkingAnimation() {
 
 
 async function handleUserInput() {
-    const userInput = document.getElementById("userInput").value;
+    
+    const userInputField = document.getElementById("userInput");
+    const userInput = userInputField.value;
+    
     if (!userInput || isSpeaking) return; 
     
     const sendButton = document.getElementById('sendButton');

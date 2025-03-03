@@ -171,7 +171,7 @@ async function handleUserInput() {
     const sendButton = document.getElementById('sendButton');
     try {
         sendButton.disabled = true;
-        
+        userInputField.value = ''; 
         const response = await fetch("/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
